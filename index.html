@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Petualangan Angka dan Cerita</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #87CEEB; /* Sky blue */
+            background-image: radial-gradient(circle at 50% 50%, #fff 2%, transparent 5%), radial-gradient(circle at 10% 20%, #fff 3%, transparent 6%), radial-gradient(circle at 90% 80%, #fff 2.5%, transparent 5%);
+            background-size: 150px 150px;
+            overflow-x: hidden;
+            touch-action: manipulation; /* Prevent double-tap zoom on mobile */
+        }
+        h1, h2, h3, .title-font {
+            font-family: 'Fredoka', sans-serif;
+        }
+        .btn-kid {
+            transition: all 0.2s ease;
+            box-shadow: 0 8px 0 rgba(0,0,0,0.2);
+        }
+        .btn-kid:active {
+            transform: translateY(8px);
+            box-shadow: 0 0 0 rgba(0,0,0,0.2);
+        }
+        .btn-answer {
+            transition: all 0.2s ease;
+            box-shadow: 0 6px 0 rgba(0,0,0,0.15);
+        }
+        .btn-answer:active {
+            transform: translateY(6px);
+            box-shadow: 0 0 0 rgba(0,0,0,0.15);
+        }
+        .animate-bounce-slow {
+            animation: bounce-slow 3s infinite;
+        }
+        @keyframes bounce-slow {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+        }
+        .animate-fly-away {
+            animation: fly-away 2s forwards;
+            opacity: 0.5;
+        }
+        @keyframes fly-away {
+            0% { transform: translate(0, 0) scale(1); opacity: 1; }
+            100% { transform: translate(100px, -150px) scale(0.5); opacity: 0; }
+        }
+        .pop-in {
+            animation: pop-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes pop-in {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        /* Hide scrollbar */
+        ::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="h-screen w-screen flex items-center justify-center text-gray-800">
+
+    <!-- Audio Context Setup (Invisible) -->
+    <div id="audio-container" class="hidden"></div>
+
+    <!-- Main Game Container -->
+    <div id="game-app" class="w-full max-w-4xl h-full md:h-[90vh] bg-white md:rounded-[3rem] shadow-2xl relative overflow-hidden flex flex-col items-center">
+        
+        <!-- Header (Score & Home Button) -->
+        <div id="header" class="w-full p-4 flex justify-between items-center bg-yellow-300 md:rounded-t-[3rem] shadow-sm hidden z-10">
+            <button onclick="goHome()" class="bg-red-400 text-white p-3 rounded-full btn-kid text-2xl" aria-label="Kembali ke Menu">
+                🏠
+            </button>
+            <div class="bg-white px-6 py-2 rounded-full shadow-inner border-4 border-yellow-400 flex items-center gap-2">
+                <span class="text-3xl">⭐</span>
+                <span id="score-display" class="title-font text-3xl font-bold text-yellow-600">0</span>
+            </div>
+        </div>
+
+        <!-- Dynamic Content Area -->
+        <div id="content-area" class="w-full h-full flex flex-col items-center justify-center p-4 sm:p-8 overflow-y-auto">
+            <!-- Content will be injected here via JS -->
+        </div>
+
+        <!-- Feedback Modal -->
+        <div id="feedback-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+            <div id="feedback-card" class="bg-white rounded-3xl p-8 text-center max-w-sm w-full mx-4 transform scale-50 transition-transform duration-300">
+                <div id="feedback-icon" class="text-8xl mb-4">⭐</div>
+                <h2 id="feedback-title" class="title-font text-4xl font-bold mb-2">Hebat!</h2>
+                <p id="feedback-message" class="text-xl mb-6">Kamu mendapat 10 Poin!</p>
+                <button id="feedback-btn" class="w-full bg-green-500 text-white title-font text-2xl py-4 rounded-full btn-kid">Lanjut 🚀</button>
+            </div>
+        </div>
+        
+        <!-- Confetti Canvas -->
+        <canvas id="confetti-canvas" class="absolute inset-0 pointer-events-none hidden z-40"></canvas>
+    </div>
+
+    <script>
+        // --- Game Database ---
+        const gameData = [
+            {
+                id: 1, title: "Kenalan Angka 11-20", icon: "🍎", color: "bg-red-400", border: "border-red-500",
+                questions: [
+                    { q: "Coba hitung, berapa jumlah apel di bawah ini?", items: "🍎", count: 14, options: [12, 14, 16], answer: 14 },
+                    { q: "Berapa banyak bintang yang bersinar?", items: "⭐", count: 12, options: [11, 12, 15], answer: 12 },
+                    { q: "Yuk hitung ikan yang sedang berenang!", items: "🐟", count: 18, options: [17, 18, 20], answer: 18 },
+                    { q: "Berapa anak ayam yang lucu ini?", items: "🐥", count: 11, options: [11, 13, 14], answer: 11 },
+                    { q: "Berapa banyak permen manis ini?", items: "🍭", count: 16, options: [14, 16, 19], answer: 16 }
+                ]
+            },
+            {
+                id: 2, title: "Petualangan Penjumlahan", icon: "➕", color: "bg-blue-400", border: "border-blue-500",
+                questions: [
+                    { q: "Kelinci punya 8 wortel 🥕. Ia mendapat 4 wortel lagi 🥕. Berapa wortel kelinci sekarang?", items: "🥕", formula: [8, 4], options: [11, 12, 14], answer: 12 },
+                    { q: "Ada 10 apel merah 🍎 di keranjang. Ibu memasukkan 5 apel lagi 🍎. Berapa jumlah apel sekarang?", items: "🍎", formula: [10, 5], options: [14, 15, 16], answer: 15 },
+                    { q: "Budi punya 12 balon 🎈. Ayah membelikan 6 balon lagi 🎈. Berapa balon Budi?", items: "🎈", formula: [12, 6], options: [17, 18, 19], answer: 18 },
+                    { q: "Di kolam ada 9 ikan 🐟. Datang lagi 4 ikan 🐟. Berapa jumlah ikan sekarang?", items: "🐟", formula: [9, 4], options: [13, 14, 15], answer: 13 },
+                    { q: "Siti memetik 11 bunga 🌸. Lalu memetik 3 bunga lagi 🌸. Berapa bunga Siti?", items: "🌸", formula: [11, 3], options: [12, 14, 16], answer: 14 },
+                    { q: "Adik punya 7 mainan mobil 🚗. Kakak memberi 8 mobil lagi 🚗. Berapa mobil adik?", items: "🚗", formula: [7, 8], options: [13, 15, 16], answer: 15 },
+                    { q: "Ada 13 kue 🧁. Nenek membuat 4 kue lagi 🧁. Berapa kuenya sekarang?", items: "🧁", formula: [13, 4], options: [17, 18, 19], answer: 17 },
+                    { q: "Beruang kumpulkan 15 madu 🍯. Ia temukan 5 madu lagi 🍯. Berapa jumlahnya?", items: "🍯", formula: [15, 5], options: [18, 19, 20], answer: 20 }
+                ]
+            },
+            {
+                id: 3, title: "Petualangan Pengurangan", icon: "➖", color: "bg-green-400", border: "border-green-500",
+                questions: [
+                    { q: "Ada 15 balon 🎈. Tiga balon terbang 💨. Berapa balon yang tersisa?", items: "🎈", start: 15, sub: 3, options: [11, 12, 13], answer: 12 },
+                    { q: "Monyet punya 18 pisang 🍌. Dimakan 4 pisang. Sisa berapa pisang?", items: "🍌", start: 18, sub: 4, options: [13, 14, 15], answer: 14 },
+                    { q: "Di taman ada 20 kupu-kupu 🦋. 5 kupu-kupu terbang jauh. Sisa berapa?", items: "🦋", start: 20, sub: 5, options: [14, 15, 16], answer: 15 },
+                    { q: "Ibu buat 16 donat 🍩. Adik makan 2 donat. Sisa berapa donat ibu?", items: "🍩", start: 16, sub: 2, options: [12, 14, 16], answer: 14 },
+                    { q: "Ada 14 burung 🐦 di pohon. 3 burung terbang. Sisa berapa burung?", items: "🐦", start: 14, sub: 3, options: [10, 11, 12], answer: 11 },
+                    { q: "Siti punya 19 permen 🍬. Diberikan ke teman 7 permen. Sisa berapa?", items: "🍬", start: 19, sub: 7, options: [11, 12, 13], answer: 12 },
+                    { q: "Ada 17 apel 🍎. Jatuh ke tanah 6 apel. Sisa berapa apel di pohon?", items: "🍎", start: 17, sub: 6, options: [11, 12, 13], answer: 11 },
+                    { q: "Kucing tangkap 13 ikan 🐟. Kucing makan 1 ikan. Sisa berapa ikan?", items: "🐟", start: 13, sub: 1, options: [11, 12, 14], answer: 12 }
+                ]
+            },
+            {
+                id: 4, title: "Tebak dan Solusi", icon: "🧩", color: "bg-purple-400", border: "border-purple-500",
+                questions: [
+                    { q: "Beruang 🐻 punya beberapa apel. Setelah berikan 3 apel ke teman, sisa 12 apel 🍎. Berapa apel beruang sebelumnya?", options: [14, 15, 16], answer: 15, type: "logic" },
+                    { q: "Kakak sedang urutkan angka: 11, 12, 13, ..., 15, 16. Angka berapa yang hilang?", options: [12, 14, 17], answer: 14, type: "logic" },
+                    { q: "Mana yang jumlahnya lebih banyak?", options: ["12 Jeruk 🍊", "15 Pisang 🍌", "13 Apel 🍎"], answer: "15 Pisang 🍌", type: "logic" },
+                    { q: "Adik butuh 15 stiker ⭐. Adik baru punya 10 stiker. Berapa stiker lagi yang adik butuhkan?", options: [4, 5, 6], answer: 5, type: "logic" },
+                    { q: "Angka berapakah yang letaknya tepat sebelum angka 20?", options: [18, 19, 21], answer: 19, type: "logic" }
+                ]
+            },
+            {
+                id: 5, title: "Cerita Seru", icon: "📖", color: "bg-pink-400", border: "border-pink-500",
+                story: [
+                    { text: "Pagi hari, Kelinci 🐰 pergi ke kebun. Cuaca sangat cerah ☀️.", img: "🐰☀️" },
+                    { text: "Kelinci membawa 12 wortel 🥕 di keranjangnya.", img: "🐰🧺🥕 (12)" },
+                    { text: "Di jalan, Kelinci bertemu Burung 🐦 yang sedang lapar.", img: "🐰🤝🐦" },
+                    { text: "Kelinci yang baik hati memberikan 2 wortel kepada Burung.", img: "🐰 ➡️ 🥕🥕 ➡️ 🐦" },
+                    { text: "Kemudian di kebun, Kelinci menemukan 3 wortel lagi! Kelinci sangat senang 🥳.", img: "🐰🔍🥕🥕🥕" }
+                ],
+                questions: [
+                    { q: "Siapa saja tokoh dalam cerita tadi?", options: ["Kelinci dan Kucing 🐱", "Kelinci dan Burung 🐦", "Beruang dan Burung 🐻"], answer: "Kelinci dan Burung 🐦" },
+                    { q: "Ke mana Kelinci pergi?", options: ["Ke Pasar 🏪", "Ke Sekolah 🏫", "Ke Kebun 🌳"], answer: "Ke Kebun 🌳" },
+                    { q: "Berapa wortel awal yang dibawa Kelinci?", options: [10, 11, 12], answer: 12 },
+                    { q: "Berapa wortel yang diberikan kepada Burung?", options: [2, 3, 4], answer: 2 },
+                    { q: "Berapa wortel Kelinci setelah memberi burung? (12 dikurangi 2)", options: [9, 10, 11], answer: 10 },
+                    { q: "Berapa wortel baru yang ditemukan Kelinci?", options: [2, 3, 4], answer: 3 },
+                    { q: "Berapa total wortel kelinci di akhir? (10 ditambah 3)", options: [11, 12, 13], answer: 13 },
+                    { q: "Bagaimana perasaan Kelinci di akhir cerita?", options: ["Sedih 😢", "Senang 🥳", "Marah 😡"], answer: "Senang 🥳" }
+                ]
+            },
+            {
+                id: 6, title: "Apa Yang Terjadi?", icon: "🔎", color: "bg-teal-400", border: "border-teal-500",
+                questions: [
+                    { q: "Di meja ada 16 kue 🍪. Kemudian 5 kue dimakan ayah. Apa yang terjadi pada kue di meja?", options: ["Bertambah ⬆️", "Berkurang ⬇️", "Tetap ⏸️"], answer: "Berkurang ⬇️", isText: true, followUp: { q: "Berapa sisa kue sekarang?", options: [10, 11, 12], answer: 11 } },
+                    { q: "Ibu membeli 12 telur 🥚. Lalu ibu membeli 3 telur lagi. Apa yang terjadi?", options: ["Bertambah ⬆️", "Berkurang ⬇️", "Tetap ⏸️"], answer: "Bertambah ⬆️", isText: true, followUp: { q: "Berapa jumlah telur ibu sekarang?", options: [14, 15, 16], answer: 15 } },
+                    { q: "Ada 18 semut 🐜 berbaris. 4 semut pergi mencari gula. Apa yang terjadi pada barisan?", options: ["Bertambah ⬆️", "Berkurang ⬇️", "Tetap ⏸️"], answer: "Berkurang ⬇️", isText: true, followUp: { q: "Berapa semut yang masih berbaris?", options: [13, 14, 15], answer: 14 } },
+                    { q: "Budi punya 11 kelereng 🔵. Ia memenangkan 6 kelereng lagi. Apa yang terjadi?", options: ["Bertambah ⬆️", "Berkurang ⬇️", "Tetap ⏸️"], answer: "Bertambah ⬆️", isText: true, followUp: { q: "Berapa kelereng Budi sekarang?", options: [16, 17, 18], answer: 17 } },
+                    { q: "Ada 15 burung 🐦 di pohon. Semuanya tertidur di dahan yang sama. Apa yang terjadi pada jumlah burung?", options: ["Bertambah ⬆️", "Berkurang ⬇️", "Tetap ⏸️"], answer: "Tetap ⏸️", isText: true, followUp: { q: "Berapa jumlah burung di pohon?", options: [14, 15, 16], answer: 15 } }
+                ]
+            },
+            {
+                id: 7, title: "Detektif Cilik", icon: "🕵️", color: "bg-orange-400", border: "border-orange-500",
+                questions: [
+                    { q: "🔍 Aku lebih besar dari 14, tapi lebih kecil dari 16. Angka berapakah aku?", options: [13, 15, 17], answer: 15, type: "logic" },
+                    { q: "🔍 Ada 18 ikan 🐟. Sebagian pergi berenang. Sekarang tinggal 15 ikan. Berapa ikan yang pergi?", options: [2, 3, 4], answer: 3, type: "logic" },
+                    { q: "🔍 Jika kamu menghitung mundur dari 20: 20, 19, 18... Angka apa selanjutnya?", options: [16, 17, 19], answer: 17, type: "logic" },
+                    { q: "🔍 Aku adalah hasil dari 10 ditambah 10. Siapakah aku?", options: [10, 15, 20], answer: 20, type: "logic" },
+                    { q: "🔍 Kotak A isi 12 apel. Kotak B isi 14 apel. Kotak mana yang isinya lebih sedikit?", options: ["Kotak A", "Kotak B", "Sama Saja"], answer: "Kotak A", type: "logic" }
+                ]
+            },
+            {
+                id: 8, title: "Misi Bintang (Final)", icon: "🏆", color: "bg-yellow-400", border: "border-yellow-500",
+                questions: [
+                    { q: "Dina punya 11 permen 🍬. Ibu beri 5 permen lagi 🍬. Berapa permen Dina?", formula: [11, 5], items: "🍬", options: [15, 16, 17], answer: 16 },
+                    { q: "Budi punya 15 bola ⚽. Diberikan teman 4 bola. Sisa berapa bola?", start: 15, sub: 4, items: "⚽", options: [10, 11, 12], answer: 11 },
+                    { q: "Hitung jumlah mobil ini: 🚗🚗🚗🚗🚗🚗🚗🚗🚗🚗🚗🚗🚗🚗", items: "🚗", count: 14, options: [13, 14, 15], answer: 14 },
+                    { q: "Cari angka yang hilang: 16, 17, ..., 19, 20", options: [15, 18, 21], answer: 18, type: "logic" },
+                    { q: "Ada 12 kucing 🐈. Datang 7 kucing lagi 🐈. Berapa jumlahnya?", formula: [12, 7], items: "🐈", options: [18, 19, 20], answer: 19 },
+                    { q: "Di meja ada 19 kue 🧁. Dimakan 6 kue 🧁. Sisa berapa kue?", start: 19, sub: 6, items: "🧁", options: [12, 13, 14], answer: 13 },
+                    { q: "Aku lebih kecil dari 13, tapi lebih besar dari 11. Siapa aku?", options: [10, 12, 14], answer: 12, type: "logic" },
+                    { q: "Tadi Rina punya 10 buku 📚. Ayah membelikan 10 buku lagi. Berapa jumlah buku Rina?", formula: [10, 10], items: "📚", options: [15, 18, 20], answer: 20 },
+                    { q: "Ada 18 semut 🐜. 8 semut pulang ke sarang. Sisa berapa semut?", start: 18, sub: 8, items: "🐜", options: [9, 10, 11], answer: 10 },
+                    { q: "Mana yang paling sedikit?", options: ["11 Semangka 🍉", "13 Nanas 🍍", "12 Melon 🍈"], answer: "11 Semangka 🍉", type: "logic" }
+                ]
+            }
+        ];
+
+        // --- State Management ---
+        let score = 0;
+        let completedLevels = 0;
+        let totalStars = 0;
+        let currentLevel = null;
+        let currentQuestionIndex = 0;
+        let storyIndex = 0;
+        let showingFollowUp = false;
+
+        const contentArea = document.getElementById('content-area');
+        const scoreDisplay = document.getElementById('score-display');
+        const header = document.getElementById('header');
+
+        // --- Audio System ---
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioCtx = new AudioContext();
+
+        function playSound(type) {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'correct') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+                osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1); // E5
+                osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.2); // G5
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.5);
+            } else if (type === 'wrong') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(200, audioCtx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.3);
+            } else if (type === 'click') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.1);
+            } else if (type === 'fanfare') {
+                // Simple fanfare
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((freq, i) => {
+                    const osc2 = audioCtx.createOscillator();
+                    const gain2 = audioCtx.createGain();
+                    osc2.connect(gain2);
+                    gain2.connect(audioCtx.destination);
+                    osc2.frequency.value = freq;
+                    gain2.gain.setValueAtTime(0, audioCtx.currentTime);
+                    gain2.gain.setValueAtTime(0.2, audioCtx.currentTime + i * 0.15);
+                    gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.15 + 0.4);
+                    osc2.start(audioCtx.currentTime + i * 0.15);
+                    osc2.stop(audioCtx.currentTime + i * 0.15 + 0.5);
+                });
+            }
+        }
+
+        function speakText(text) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'id-ID';
+            utterance.rate = 0.9; // Slightly slower for kids
+            utterance.pitch = 1.2; // Cheerful pitch
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function stopSpeaking() {
+            window.speechSynthesis.cancel();
+        }
+
+        // --- Render Functions ---
+        function renderHome() {
+            header.classList.add('hidden');
+            stopSpeaking();
+            
+            contentArea.innerHTML = `
+                <div class="text-center pop-in">
+                    <div class="text-8xl mb-4 animate-bounce-slow">🐰</div>
+                    <h1 class="title-font text-4xl md:text-6xl text-yellow-500 font-bold mb-4 drop-shadow-md">
+                        Petualangan Angka & Cerita
+                    </h1>
+                    <p class="text-2xl text-gray-600 mb-8 font-bold">
+                        Halo, Teman! Yuk, kita berpetualang bersama! 🚀
+                    </p>
+                    <div class="flex flex-col gap-4 max-w-sm mx-auto">
+                        <button onclick="playSound('click'); renderLevelMenu()" class="bg-green-400 hover:bg-green-500 text-white title-font text-3xl py-4 px-8 rounded-full btn-kid w-full border-b-8 border-green-600">
+                            🎮 Mulai Bermain
+                        </button>
+                        <button onclick="playSound('click'); showStoryMenu()" class="bg-pink-400 hover:bg-pink-500 text-white title-font text-3xl py-4 px-8 rounded-full btn-kid w-full border-b-8 border-pink-600">
+                            📚 Cerita Seru
+                        </button>
+                        <button onclick="playSound('click'); renderFinalResult()" class="bg-blue-400 hover:bg-blue-500 text-white title-font text-3xl py-4 px-8 rounded-full btn-kid w-full border-b-8 border-blue-600">
+                            🏆 Hasilku
+                        </button>
+                    </div>
+                </div>
+            `;
+            // Trigger welcome speech on first interact to bypass browser autoplay blocks
+            document.body.addEventListener('click', initAudio, { once: true });
+        }
+
+        function initAudio() {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            speakText("Halo, Teman! Yuk, kita berpetualang bersama!");
+        }
+
+        function goHome() {
+            playSound('click');
+            currentLevel = null;
+            renderHome();
+        }
+
+        function renderLevelMenu() {
+            header.classList.remove('hidden');
+            stopSpeaking();
+            
+            let html = `
+                <div class="text-center w-full pop-in h-full flex flex-col">
+                    <h2 class="title-font text-4xl text-blue-600 mb-6 font-bold flex items-center justify-center gap-4">
+                        <button onclick="speakText('Pilih Level Petualanganmu')" class="text-3xl hover:scale-110 transition-transform">🔊</button>
+                        Peta Petualangan 🗺️
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 overflow-y-auto pb-8 px-2 flex-grow">
+            `;
+
+            gameData.forEach(level => {
+                html += `
+                    <button onclick="startLevel(${level.id})" class="${level.color} ${level.border} border-b-8 text-white p-6 rounded-3xl btn-kid flex flex-col items-center justify-center gap-3">
+                        <span class="text-6xl">${level.icon}</span>
+                        <span class="title-font text-xl font-bold">${level.title}</span>
+                    </button>
+                `;
+            });
+
+            html += `</div></div>`;
+            contentArea.innerHTML = html;
+            speakText("Pilih Level Petualanganmu!");
+        }
+
+        function showStoryMenu() {
+            // Shortcut to Level 5 (Story)
+            startLevel(5);
+        }
+
+        function startLevel(id) {
+            playSound('click');
+            currentLevel = gameData.find(l => l.id === id);
+            currentQuestionIndex = 0;
+            storyIndex = 0;
+            showingFollowUp = false;
+
+            if (currentLevel.story) {
+                renderStorySegment();
+            } else {
+                renderQuestion();
+            }
+        }
+
+        function renderStorySegment() {
+            stopSpeaking();
+            const segment = currentLevel.story[storyIndex];
+            
+            contentArea.innerHTML = `
+                <div class="text-center w-full max-w-2xl pop-in flex flex-col items-center justify-center h-full">
+                    <h2 class="title-font text-4xl text-pink-600 mb-8 font-bold">${currentLevel.title}</h2>
+                    
+                    <div class="bg-yellow-50 rounded-[3rem] border-4 border-yellow-200 p-8 w-full shadow-lg mb-8 relative">
+                        <button onclick="speakText('${segment.text}')" class="absolute -top-6 -right-6 bg-blue-400 text-white rounded-full p-4 text-3xl btn-kid border-b-4 border-blue-600">🔊</button>
+                        
+                        <div class="text-7xl mb-8">${segment.img}</div>
+                        <p class="text-3xl font-bold text-gray-700 leading-snug">${segment.text}</p>
+                    </div>
+
+                    <button onclick="nextStorySegment()" class="bg-green-500 hover:bg-green-600 text-white title-font text-3xl py-4 px-12 rounded-full btn-kid border-b-8 border-green-700">
+                        ${storyIndex < currentLevel.story.length - 1 ? 'Lanjut ➡️' : 'Mulai Menjawab ❓'}
+                    </button>
+                </div>
+            `;
+            speakText(segment.text);
+        }
+
+        function nextStorySegment() {
+            playSound('click');
+            if (storyIndex < currentLevel.story.length - 1) {
+                storyIndex++;
+                renderStorySegment();
+            } else {
+                renderQuestion();
+            }
+        }
+
+        function renderQuestion() {
+            stopSpeaking();
+            const qData = currentLevel.questions[currentQuestionIndex];
+            const actualQuestion = showingFollowUp ? qData.followUp : qData;
+            
+            let visualHTML = "";
+
+            // Render Visuals based on Question Type
+            if (qData.type !== 'logic' && !qData.isText) {
+                if (qData.count) {
+                    // Simple Counting
+                    visualHTML = `<div class="flex flex-wrap justify-center gap-2 mb-6 max-w-lg mx-auto text-5xl">
+                        ${Array(qData.count).fill(`<span>${qData.items}</span>`).join('')}
+                    </div>`;
+                } else if (qData.formula) {
+                    // Addition
+                    visualHTML = `
+                        <div class="flex flex-wrap justify-center items-center gap-4 mb-6 max-w-xl mx-auto text-5xl bg-blue-50 p-6 rounded-3xl border-4 border-blue-200">
+                            <div class="flex flex-wrap justify-center gap-1 w-2/5">
+                                ${Array(qData.formula[0]).fill(`<span>${qData.items}</span>`).join('')}
+                            </div>
+                            <div class="text-4xl font-bold text-blue-500">➕</div>
+                            <div class="flex flex-wrap justify-center gap-1 w-2/5">
+                                ${Array(qData.formula[1]).fill(`<span>${qData.items}</span>`).join('')}
+                            </div>
+                        </div>`;
+                } else if (qData.start && qData.sub) {
+                    // Subtraction with Animation
+                    let remain = qData.start - qData.sub;
+                    visualHTML = `
+                        <div class="flex flex-wrap justify-center items-center gap-2 mb-6 max-w-xl mx-auto text-5xl bg-green-50 p-6 rounded-3xl border-4 border-green-200">
+                            ${Array(remain).fill(`<span>${qData.items}</span>`).join('')}
+                            ${Array(qData.sub).fill(`<span class="animate-fly-away">${qData.items}</span>`).join('')}
+                        </div>`;
+                }
+            } else if (qData.type === 'logic') {
+                 visualHTML = `<div class="text-7xl mb-6 animate-bounce-slow">🤔</div>`;
+            }
+
+            let optionsHTML = "";
+            const isTextOptions = typeof actualQuestion.options[0] === 'string';
+            
+            actualQuestion.options.forEach((opt, idx) => {
+                optionsHTML += `
+                    <button onclick="checkAnswer('${opt}', '${actualQuestion.answer}')" 
+                            class="bg-white border-4 border-${currentLevel.color.split('-')[1]}-300 hover:bg-gray-50 text-gray-800 title-font ${isTextOptions ? 'text-2xl p-4' : 'text-4xl py-6 px-4'} rounded-3xl btn-answer w-full">
+                        ${opt}
+                    </button>
+                `;
+            });
+
+            contentArea.innerHTML = `
+                <div class="w-full max-w-3xl pop-in flex flex-col items-center justify-center h-full">
+                    <div class="w-full flex justify-between items-center mb-4">
+                        <span class="text-xl font-bold text-gray-500 bg-gray-100 px-4 py-2 rounded-full">
+                            Soal ${currentQuestionIndex + 1} / ${currentLevel.questions.length}
+                        </span>
+                        <button onclick="speakText('${actualQuestion.q.replace(/'/g, "\\'")}')" class="bg-blue-400 text-white rounded-full p-3 text-2xl btn-kid border-b-4 border-blue-600">🔊 Dengarkan</button>
+                    </div>
+
+                    <h3 class="text-2xl md:text-3xl font-bold text-center mb-6 leading-relaxed text-gray-700">
+                        ${actualQuestion.q}
+                    </h3>
+                    
+                    ${visualHTML}
+
+                    <div class="grid ${isTextOptions ? 'grid-cols-1' : 'grid-cols-3'} gap-4 w-full mt-auto">
+                        ${optionsHTML}
+                    </div>
+                </div>
+            `;
+            
+            speakText(actualQuestion.q);
+        }
+
+        function checkAnswer(selected, correct) {
+            stopSpeaking();
+            const isCorrect = String(selected) === String(correct);
+            showFeedback(isCorrect);
+        }
+
+        function showFeedback(isCorrect) {
+            const modal = document.getElementById('feedback-modal');
+            const card = document.getElementById('feedback-card');
+            const icon = document.getElementById('feedback-icon');
+            const title = document.getElementById('feedback-title');
+            const message = document.getElementById('feedback-message');
+            const btn = document.getElementById('feedback-btn');
+
+            modal.classList.remove('hidden');
+            
+            // Allow layout to render before removing scale to trigger transition
+            setTimeout(() => {
+                card.classList.remove('scale-50');
+                card.classList.add('scale-100');
+            }, 10);
+
+            // Remove previous event listeners
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+
+            if (isCorrect) {
+                playSound('correct');
+                score += 10;
+                totalStars += 1;
+                scoreDisplay.innerText = score;
+                
+                icon.innerText = "🌟";
+                title.innerText = "Hebat!";
+                title.className = "title-font text-4xl font-bold mb-2 text-green-500";
+                message.innerText = "+10 Poin! Kamu pintar sekali!";
+                newBtn.className = "w-full bg-green-500 hover:bg-green-600 text-white title-font text-2xl py-4 rounded-full btn-kid border-b-4 border-green-700";
+                newBtn.innerText = "Lanjut 🚀";
+                
+                speakText("Hebat! Jawabanmu benar.");
+
+                newBtn.onclick = () => {
+                    playSound('click');
+                    closeFeedback();
+                    handleNextState();
+                };
+            } else {
+                playSound('wrong');
+                icon.innerText = "💪";
+                title.innerText = "Hampir Benar!";
+                title.className = "title-font text-4xl font-bold mb-2 text-orange-500";
+                message.innerText = "Tidak apa-apa! Yuk coba lagi, kamu pasti bisa! 😊";
+                newBtn.className = "w-full bg-orange-400 hover:bg-orange-500 text-white title-font text-2xl py-4 rounded-full btn-kid border-b-4 border-orange-600";
+                newBtn.innerText = "Coba Lagi ↺";
+                
+                speakText("Tidak apa-apa! Yuk coba lagi, kamu pasti bisa!");
+
+                newBtn.onclick = () => {
+                    playSound('click');
+                    closeFeedback();
+                    // Just close modal, let them try again
+                };
+            }
+        }
+
+        function closeFeedback() {
+            const modal = document.getElementById('feedback-modal');
+            const card = document.getElementById('feedback-card');
+            card.classList.remove('scale-100');
+            card.classList.add('scale-50');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        function handleNextState() {
+            const qData = currentLevel.questions[currentQuestionIndex];
+            
+            // Check if there is a follow up question (Level 6 logic)
+            if (qData.followUp && !showingFollowUp) {
+                showingFollowUp = true;
+                renderQuestion();
+                return;
+            }
+
+            // Move to next question
+            showingFollowUp = false;
+            currentQuestionIndex++;
+            
+            if (currentQuestionIndex < currentLevel.questions.length) {
+                renderQuestion();
+            } else {
+                completedLevels++;
+                renderLevelComplete();
+            }
+        }
+
+        function renderLevelComplete() {
+            stopSpeaking();
+            playSound('fanfare');
+            
+            contentArea.innerHTML = `
+                <div class="text-center pop-in w-full max-w-md">
+                    <div class="text-8xl mb-6 animate-bounce-slow">🏆</div>
+                    <h2 class="title-font text-4xl font-bold text-yellow-500 mb-4">Misi Selesai!</h2>
+                    <p class="text-2xl text-gray-700 font-bold mb-8">Kamu berhasil menyelesaikan ${currentLevel.title}!</p>
+                    <button onclick="playSound('click'); renderLevelMenu()" class="bg-blue-500 hover:bg-blue-600 text-white title-font text-3xl py-4 px-12 rounded-full btn-kid w-full border-b-8 border-blue-700">
+                        Peta Level 🗺️
+                    </button>
+                </div>
+            `;
+            speakText("Misi Selesai! Kamu luar biasa!");
+        }
+
+        function renderFinalResult() {
+            stopSpeaking();
+            playSound('fanfare');
+            header.classList.add('hidden');
+            
+            let rank = "";
+            let rankIcon = "";
+            if (score <= 300) { // Assuming total score can be up to ~500 based on questions array lengths
+                rank = "Penjelajah Angka";
+                rankIcon = "🔭";
+            } else if (score <= 500) {
+                rank = "Detektif Hebat";
+                rankIcon = "🕵️";
+            } else {
+                rank = "Pahlawan Matematika";
+                rankIcon = "🦸‍♂️";
+            }
+
+            contentArea.innerHTML = `
+                <div class="text-center pop-in w-full max-w-2xl bg-white/90 p-8 rounded-[3rem] shadow-xl z-10 border-8 border-yellow-300">
+                    <h2 class="title-font text-4xl md:text-5xl font-bold text-red-500 mb-2">🎊 HEBAT! 🎊</h2>
+                    <h3 class="title-font text-3xl text-blue-500 mb-8">Petualanganmu Selesai!</h3>
+                    
+                    <div class="grid grid-cols-2 gap-4 mb-8">
+                        <div class="bg-yellow-100 p-4 rounded-3xl border-4 border-yellow-300">
+                            <div class="text-4xl mb-2">⭐</div>
+                            <div class="text-xl font-bold text-gray-600">Total Bintang</div>
+                            <div class="title-font text-3xl text-yellow-600">${totalStars}</div>
+                        </div>
+                        <div class="bg-green-100 p-4 rounded-3xl border-4 border-green-300">
+                            <div class="text-4xl mb-2">💯</div>
+                            <div class="text-xl font-bold text-gray-600">Total Poin</div>
+                            <div class="title-font text-3xl text-green-600">${score}</div>
+                        </div>
+                    </div>
+
+                    <div class="bg-purple-100 p-6 rounded-3xl border-4 border-purple-300 mb-8">
+                        <div class="text-xl text-gray-600 font-bold mb-2">Gelar Petualangmu:</div>
+                        <div class="title-font text-4xl text-purple-600 flex justify-center items-center gap-3">
+                            ${rankIcon} ${rank}
+                        </div>
+                    </div>
+
+                    <p class="text-2xl text-gray-700 font-bold mb-8">Hebat! Kamu sudah belajar menghitung, memahami cerita, dan mencari solusi. Terus berlatih ya! 🌟</p>
+                    
+                    <button onclick="playSound('click'); location.reload()" class="bg-orange-500 hover:bg-orange-600 text-white title-font text-3xl py-4 px-12 rounded-full btn-kid border-b-8 border-orange-700">
+                        Main Lagi 🔄
+                    </button>
+                </div>
+            `;
+            
+            speakText(`Hebat! Petualanganmu Selesai! Kamu mendapat gelar ${rank}. Terus berlatih ya!`);
+            startConfetti();
+        }
+
+        function startConfetti() {
+            const canvas = document.getElementById('confetti-canvas');
+            canvas.classList.remove('hidden');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            const pieces = [];
+            const colors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4CAF50', '#8BC34A', '#CDDC39', '#FFEB3B', '#FFC107', '#FF9800', '#FF5722'];
+
+            for (let i = 0; i < 150; i++) {
+                pieces.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height - canvas.height,
+                    w: Math.random() * 10 + 5,
+                    h: Math.random() * 10 + 5,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    speed: Math.random() * 3 + 2,
+                    angle: Math.random() * 360,
+                    spin: Math.random() * 5 - 2.5
+                });
+            }
+
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                pieces.forEach(p => {
+                    ctx.save();
+                    ctx.translate(p.x + p.w / 2, p.y + p.h / 2);
+                    ctx.rotate(p.angle * Math.PI / 180);
+                    ctx.fillStyle = p.color;
+                    ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+                    ctx.restore();
+
+                    p.y += p.speed;
+                    p.angle += p.spin;
+
+                    if (p.y > canvas.height) {
+                        p.y = -10;
+                        p.x = Math.random() * canvas.width;
+                    }
+                });
+                requestAnimationFrame(animate);
+            }
+            animate();
+            
+            // Resize canvas on window resize
+            window.addEventListener('resize', () => {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            });
+        }
+
+        // --- Init ---
+        window.onload = () => {
+            renderHome();
+        };
+    </script>
+</body>
+</html>
